@@ -48,13 +48,15 @@ def straight(speed,dt):
 	print("moving straight")
 	fw.turn_straight()
 	bw.forward()
-	bw.speed(speed)
+	bw.speed = speed
+	time.sleep(dt)
 
 def back_up(speed,dt):
 	print("backing up")
 	fw.turn_straight()
 	bw.backward()
-	bw.speed(speed)
+	bw.speed = speed
+	time.sleep(dt)
 
 def back_turn_right(speed,dt):
 	print("backing up right")
@@ -80,25 +82,25 @@ def stop(speed,dt):
 # defining dictionary of movement functions
 ### add to movements dictionary if more functions added ###
 movements = {
-		0: turn_right,
-		1: turn_left,
+        0: turn_right,
+        1: turn_left,
 		2: straight,
-		3: back_up,
+        3: back_up,
 		4: back_turn_right,
 		5: back_turn_left,
 		6: stop
-	}
+    }
 
 def rand_movement():
 	#N: number of random movements possible
 	N = len(movements)
 	# picking random movement 
 	n = random.randint(0,N)
-	fcn = movements.get(n)
+	fcn = movements.get(n,"nothing")
 	# random speed integer between 50% - 100%
 	speed_rnd = random.randint(50,100)
 	# random duration between 1-3 seconds
-	dt = random.randrange(1,3)
+	dt = random.randrange(1,2)
 	return fcn(speed_rnd,dt)
 
 ## From ultrasonic avoid code 

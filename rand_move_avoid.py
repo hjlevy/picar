@@ -80,14 +80,14 @@ def stop(speed,dt):
 # defining dictionary of movement functions
 ### add to movements dictionary if more functions added ###
 movements = {
-        0: turn_right,
-        1: turn_left,
+		0: turn_right,
+		1: turn_left,
 		2: straight,
-        3: back_up,
+		3: back_up,
 		4: back_turn_right,
 		5: back_turn_left,
 		6: stop
-    }
+	}
 
 def rand_movement():
 	#N: number of random movements possible

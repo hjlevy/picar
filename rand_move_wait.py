@@ -1,5 +1,5 @@
 #This code performs random movements on the car while simultaneously avoiding obstacles 
-#BUG: if you are doing a random movement function it can't exit until the sleep timer is complete
+#BUG: can't exit out of program with KeyBoardInterrupt, some GPIO warning
 
 #picar packages
 from SunFounder_Ultrasonic_Avoidance import Ultrasonic_Avoidance
@@ -46,7 +46,8 @@ def turn_right(speed,dt):
 	fw.turn(90+45)
 	bw.forward()
 	bw.speed = speed
-	time.sleep(dt)
+	exit.wait(dt)
+
 
 def turn_left(speed,dt):
 	print("turning left")
@@ -54,21 +55,21 @@ def turn_left(speed,dt):
 	fw.turn(90-45)
 	bw.forward()
 	bw.speed = speed
-	time.sleep(dt)
+	exit.wait(dt)
  
 def straight(speed,dt):
 	print("moving straight")
 	fw.turn_straight()
 	bw.forward()
 	bw.speed = speed
-	time.sleep(dt)
+	exit.wait(dt)
 
 def back_up(speed,dt):
 	print("backing up")
 	fw.turn_straight()
 	bw.backward()
 	bw.speed = speed
-	time.sleep(dt)
+	exit.wait(dt)
 
 def back_turn_right(speed,dt):
 	print("backing up right")
@@ -76,7 +77,7 @@ def back_turn_right(speed,dt):
 	fw.turn(90-45)
 	bw.backward()
 	bw.speed = speed
-	time.sleep(dt)
+	exit.wait(dt)
 
 def back_turn_left(speed,dt):
 	print("backing up left")
@@ -84,7 +85,7 @@ def back_turn_left(speed,dt):
 	fw.turn(90+45)
 	bw.backward()
 	bw.speed = speed
-	time.sleep(dt)
+	exit.wait(dt)
 
 def stop(speed,dt):
 	bw.stop()
@@ -142,6 +143,14 @@ def opposite_angle():
 	last_angle = angle
 	return angle
 
+def ua_reading():
+	distance = ua.get_distance()
+	if distance < turn_distance:
+		exit.set()
+		print('set')
+	else: 
+		exit.clear()
+
 def start_avoidance():
 	print('start_avoidance')
 	backward_speed = 70
@@ -185,6 +194,7 @@ def start_avoidance():
 if __name__ == '__main__':
 	#will continue avoiding until keyboard interrupt
 	try:
-		start_avoidance()
+		threading.Thread(target=ua_reading).start()
+		threading.Thread(target=start_avoidance).start()
 	except KeyboardInterrupt:
 		stop(1,1)

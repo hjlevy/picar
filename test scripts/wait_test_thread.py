@@ -10,11 +10,48 @@ import sys
 import time
 
 # import keyboard module.
-import keyboard 
-
-import signal 
+import keyboard
+from pynput.keyboard import Key, Listener, KeyCode 
+from collections import defaultdict
 
 exit = Event()
+
+class KeyboardCtrl(Listener):
+	def __init__(self):
+		self._key_pressed = defaultdict(lambda: False)
+        # self._last_action_ts = defaultdict(lambda: 0.0)
+		super().__init__(on_press=self._on_press, on_release=self._on_release)
+		self.start()
+
+	def _on_press(self, key):
+		#printing key pressed
+		print('{0} pressed'.format(key))
+		#changing keypressed variable to true 
+		if isinstance(key, KeyCode):
+			self._key_pressed[key.char] = True
+		elif isinstance(key, Key):
+			self._key_pressed[key] = True
+		
+
+	def _on_release(self, key):
+		#printing key released 
+		print('{0} release'.format(key))
+		#changing keypressed variable to false
+		if isinstance(key, KeyCode):
+			self._key_pressed[key.char] = False
+		elif isinstance(key, Key):
+			self._key_pressed[key] = False
+
+		if key == Key.esc:
+			# Stop listener
+			exit.set()
+			return False
+		else: 
+			return True
+
+	def quit(self):
+		#return false if not running or escape pressed
+		return not self.running or self._key_pressed[Key.esc]	
 
 class Avoidance(threading.Thread):
   
@@ -25,6 +62,7 @@ class Avoidance(threading.Thread):
 	def __init__(self, *args, **kwargs):
 		super(Avoidance, self).__init__()
 		self._stopper = threading.Event()          # ! must not use _stop
+		self.control = KeyboardCtrl()
 
 	def stop(self):                              #  (avoid confusion)
 		print( "base stop()", file=sys.stderr )
@@ -37,23 +75,12 @@ class Avoidance(threading.Thread):
 		print("moving straight")
 		exit.wait(10)
 
-	def signal_handler(self, signal, frame):
-		print('You pressed Ctrl+C!')
-		exit.set()
-		sys.exit(0)
-
 	def get_data(self):
 		if keyboard.read_key() == 'space':
 			print('set')
 			exit.set()
 		else:
 			exit.clear()
-
-	def stop_movement(self):
-		if keyboard.read_key() == 'esc':
-			print('stop everything')
-			exit.set()
-			self.stop  
 
 	def run(self):
 		if self.stopped():
@@ -65,7 +92,6 @@ class Avoidance(threading.Thread):
 
 if __name__ == '__main__':
 	t = Avoidance()
-	signal.signal(signal.SIGINT, t.signal_handler)
-	t.start()
-	t.get_data()
-	# t.stop_movement()
+	t.start() 
+	t.get_data() 
+ 

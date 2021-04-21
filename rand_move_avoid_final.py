@@ -1,5 +1,6 @@
 #This code performs random movements on the car while simultaneously avoiding obstacles 
-#WIP: can't use keyboard for raspberry pi -> try to use signal or figure out a dif way to use keyboard to stop car
+#press esc, then control c when wanting to stop the car and finish the program
+#GPIO Runtime Error does not affect performance but is unknown bug
 
 #picar packages
 from SunFounder_Ultrasonic_Avoidance import Ultrasonic_Avoidance
@@ -11,13 +12,15 @@ import picar
 import time
 import random
 import numpy as np
+import sys
 
 #for running more than one event at once
 from threading import Event
 import threading
 
 # import keyboard module.
-import keyboard
+from pynput.keyboard import Key, Listener, KeyCode 
+from collections import defaultdict
 
 exit = Event()
 
@@ -52,7 +55,6 @@ def turn_right(speed,dt):
 	bw.speed = speed
 	exit.wait(dt)
 
-
 def turn_left(speed,dt):
 	print("turning left")
 	# 90deg is straight -> to turn must add or subtract from 90
@@ -60,7 +62,6 @@ def turn_left(speed,dt):
 	bw.forward()
 	bw.speed = speed
 	exit.wait(dt)
-	#time.sleep(dt)
  
 def straight(speed,dt):
 	print("moving straight")
@@ -68,14 +69,13 @@ def straight(speed,dt):
 	bw.forward()
 	bw.speed = speed
 	exit.wait(dt)
-	#time.sleep(dt)
 
 def back_up(speed,dt):
 	print("backing up")
 	fw.turn_straight()
 	bw.backward()
 	bw.speed = speed
-	time.sleep(dt)
+	exit.wait(dt)
 
 def back_turn_right(speed,dt):
 	print("backing up right")
@@ -83,7 +83,7 @@ def back_turn_right(speed,dt):
 	fw.turn(90-45)
 	bw.backward()
 	bw.speed = speed
-	time.sleep(dt)
+	exit.wait(dt)
 
 def back_turn_left(speed,dt):
 	print("backing up left")
@@ -91,7 +91,7 @@ def back_turn_left(speed,dt):
 	fw.turn(90+45)
 	bw.backward()
 	bw.speed = speed
-	time.sleep(dt)
+	exit.wait(dt)
 
 def stop(speed,dt):
 	bw.stop()
@@ -110,6 +110,44 @@ movements = {
 		6: stop
     }
 
+class KeyboardCtrl(Listener):
+	def __init__(self):
+		self._key_pressed = defaultdict(lambda: False)
+        # self._last_action_ts = defaultdict(lambda: 0.0)
+		super().__init__(on_press=self._on_press, on_release=self._on_release)
+		self.start()
+
+	def _on_press(self, key):
+		#printing key pressed
+		print('{0} pressed'.format(key))
+		#changing keypressed variable to true 
+		if isinstance(key, KeyCode):
+			self._key_pressed[key.char] = True
+		elif isinstance(key, Key):
+			self._key_pressed[key] = True
+		
+
+	def _on_release(self, key):
+		#printing key released 
+		print('{0} release'.format(key))
+		#changing keypressed variable to false
+		if isinstance(key, KeyCode):
+			self._key_pressed[key.char] = False
+		elif isinstance(key, Key):
+			self._key_pressed[key] = False
+
+		if key == Key.esc:
+			# Stop listener
+			exit.set()
+			stop(1,1)
+			return False
+		else: 
+			return True
+
+	def quit(self):
+		#return false if not running or escape pressed
+		return not self.running or self._key_pressed[Key.esc]	
+
 class Avoidance(threading.Thread):  
     # Thread class with a _stop() method. 
     # The thread itself has to check
@@ -118,6 +156,7 @@ class Avoidance(threading.Thread):
 	def __init__(self, *args, **kwargs):
 		super(Avoidance, self).__init__()
 		self._stopper = threading.Event()          # ! must not use _stop
+		self.control = KeyboardCtrl()
 
 	def stop(self):                              #  (avoid confusion)
 		print( "base stop()", file=sys.stderr )
@@ -128,8 +167,7 @@ class Avoidance(threading.Thread):
 
 	def rand_movement(self):
 		#N: number of random movements possible
-		#N = len(movements)
-		N = 3
+		N = len(movements)
 		# picking random movement 
 		n = random.randint(0,N)
 		fcn = movements.get(n,"nothing")
@@ -174,19 +212,13 @@ class Avoidance(threading.Thread):
 		else: 
 			exit.clear()
 
-	def stop_all(self):
-		if keyboard.read_key() == 'esc':
-			print('stop everything')
-			exit.set()
-			self.stop  
-
 	def run(self):
 		print('start_avoidance')
 		backward_speed = 70
 		forward_speed = 70
 
 		count = 0
-		while True:
+		while not self.control.quit():
 			distance = ua.get_distance()
 			print("distance: %scm" % distance)
 			if distance > 0:
@@ -218,6 +250,7 @@ class Avoidance(threading.Thread):
 					bw.backward()
 					bw.speed = forward_speed
 					count += 1
+		self.stop()
 
 
 if __name__ == '__main__':
@@ -225,5 +258,4 @@ if __name__ == '__main__':
 	t = Avoidance() 
 	t.start()
 	t.ua_reading()
-	t.stop_all()
-	stop(1,1)
+

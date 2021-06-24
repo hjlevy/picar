@@ -1,4 +1,5 @@
 #This code performs random movements on the car while simultaneously avoiding obstacles 
+#plots where car has traced (WIP: need to include the avoidance paths)
 #press esc, then control c when wanting to stop the car and finish the program
 #GPIO Runtime Error does not affect performance but is unknown bug
 
@@ -13,6 +14,9 @@ import time
 import random
 import numpy as np
 import sys
+
+#for plotting
+import matplotlib.pyplot as plt
 
 #for running more than one event at once
 from threading import Event
@@ -110,6 +114,22 @@ movements = {
 		6: stop
     }
 
+# def live_plotter(self,x_vec,y1_data, z_data, line1, identifier='',pause_time=0.1):
+# 	if line1==[]:
+# 		# this is the call to matplotlib that allows dynamic plotting
+# 		plt.ion()
+# 		fig = plt.figure(figsize=(13,6))
+# 		ax = fig.add_subplot(111,projection='3d')
+# 		# create a variable for the line so we can later update it
+# 		self.line1, = ax.plot(x_vec,y1_data,z_data,'.',alpha=0.8)        
+# 		#update plot label/title
+# 		plt.ylabel('dy')
+# 		plt.xlabel('dx')
+# 		ax.set_zlabel('dz')
+# 		ax.set_zlim(-1,1)
+# 		plt.title('Title: {}'.format(identifier))
+# 		plt.show()
+
 class KeyboardCtrl(Listener):
 	def __init__(self):
 		self._key_pressed = defaultdict(lambda: False)
@@ -157,9 +177,9 @@ class Avoidance(threading.Thread):
 		super(Avoidance, self).__init__()
 		self._stopper = threading.Event()          # ! must not use _stop
 		self.control = KeyboardCtrl()
-		ua = Ultrasonic_Avoidance.Ultrasonic_Avoidance(20)
-		fw = front_wheels.Front_Wheels(db='config')
-		bw = back_wheels.Back_Wheels(db='config')
+		self.p0 = [0,0] #initial position
+		self.xpath = []
+		self.ypath = []
 
 	def stop(self):                              #  (avoid confusion)
 		print( "base stop()", file=sys.stderr )
@@ -178,6 +198,26 @@ class Avoidance(threading.Thread):
 		speed_rnd = random.randint(50,100)
 		# random duration between 1-2 seconds
 		dt = random.randrange(1,2)
+
+		# conditional statement for path tracing based on path
+		if n == 0 or n == 4: #right forward, right backward
+			if n ==0:
+				self.point_plot(dt,speed_rnd,90-45)
+			else: 
+				self.point_plot(dt,-speed_rnd,90-45)
+		elif n == 1 or n==5:  #left forward, left backward
+			if n ==1:
+				self.point_plot(dt,speed_rnd,90+45)
+			else: 
+				self.point_plot(dt,-speed_rnd,90+45)
+		elif n == 2 or n==3:  #forward, backward
+			if n ==2:
+				self.point_plot(dt,speed_rnd,90)
+			else: 
+				self.point_plot(dt,-speed_rnd,90)
+		else: 
+			pass
+
 		return fcn(speed_rnd,dt)
 
 	## From ultrasonic avoid code 
@@ -214,6 +254,88 @@ class Avoidance(threading.Thread):
 			print('set')
 		else: 
 			exit.clear()
+
+	# point generator with initial x0, y0, time duration of movement, speed percentage, degree turn 
+	def point_plot(self,dur,spd,deg):
+		x0 = self.p0[0]
+		y0 = self.p0[1]
+
+		c = np.pi*(2.5*1/12)
+		# distance between tires
+		L = 5.6*1/12
+
+		# conversion factor ft/sec
+		f = c*180*1/60
+		v = spd/100*f
+
+		# if turning
+		if deg != 90: 
+			# turning radius
+			alpha = abs(deg-90)*np.pi/180
+			R = L/np.sin(alpha)
+
+			# calculating theta traveled
+			omega = v/R
+			th_f = omega*dur #rads
+
+			# checking if (+) left or (-) right turn
+			#front left turn
+			if (np.sign(deg-90) == 1 and np.sign(spd) ==1):
+				# theta step of sim
+				th_0 = 0
+				dth = 0.1 
+				c = [x0-R,y0]
+			# back left turn
+			elif (np.sign(deg-90) == 1 and np.sign(spd) == -1):
+				th_0 = 0
+				dth = -0.1
+				c = [x0-R,y0]
+			# front right turn
+			elif (np.sign(deg-90) == -1 and np.sign(spd) == 1):
+				th_f = -th_f
+				th_0 = np.pi
+				dth = -0.1
+				c = [x0+R,y0]
+			# back right turn
+			else:
+				th_f = -th_f
+				th_0 = np.pi
+				dth = 0.1
+				c = [x0+R,y0]
+
+			thetas = np.arange(th_0, th_0+th_f, dth)
+			# print(thetas) #for debug
+			xs = c[0] + R*np.cos(thetas)
+			ys = c[1] + R*np.sin(thetas)
+
+		else: #if straight or backward
+			x_f = x0 
+			y_f = y0 + v*dur
+			if np.sign(spd) == 1:
+				# theta step of sim
+				dxy = 0.1 
+			else:
+				dxy = -0.1
+			ys = np.arange(y0,y_f,dxy)
+			xs = x0*np.ones_like(ys)
+
+		# next start point
+		self.p0[0] = xs[-1]
+		self.p0[1] = ys[-1]
+
+		# collecting all points to plot 
+		self.xpath = np.append(self.xpath,xs)
+		self.ypath = np.append(self.ypath,ys)
+
+	def plot_path(self):
+		#plotting results
+		plt.plot(self.xpath,self.ypath)
+		plt.xlabel('x position (ft)')
+		plt.ylabel('y position (ft)')
+
+		plt.xlim([-6,6])
+		plt.ylim([0,24])
+		plt.show()
 
 	def run(self):
 		print('start_avoidance')
@@ -253,12 +375,14 @@ class Avoidance(threading.Thread):
 					bw.backward()
 					bw.speed = forward_speed
 					count += 1
+		
+		self.plot_path()
 		self.stop()
-
 
 if __name__ == '__main__':
 	#will continue avoiding until keyboard interrupt
 	t = Avoidance() 
 	t.start()
 	t.ua_reading()
+	#t.plot_path()
 

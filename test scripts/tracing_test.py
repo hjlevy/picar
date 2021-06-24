@@ -18,9 +18,9 @@ def point_plot(x0,y0,dur,spd,deg):
     v = spd/100*f
 
     # if turning
-    if deg != 0: 
+    if deg != 90: 
         # turning radius
-        alpha = abs(deg)*np.pi/180
+        alpha = abs(deg-90)*np.pi/180
         R = L/np.sin(alpha)
 
         # calculating theta traveled
@@ -29,18 +29,18 @@ def point_plot(x0,y0,dur,spd,deg):
 
         # checking if (+) left or (-) right turn
         #front left turn
-        if (np.sign(deg) == 1 and np.sign(spd) ==1):
+        if (np.sign(deg-90) == 1 and np.sign(spd) ==1):
             # theta step of sim
             th_0 = 0
             dth = 0.1 
             c = [x0-R,y0]
         # back left turn
-        elif (np.sign(deg) == 1 and np.sign(spd) == -1):
+        elif (np.sign(deg-90) == 1 and np.sign(spd) == -1):
             th_0 = 0
             dth = -0.1
             c = [x0-R,y0]
         # front right turn
-        elif (np.sign(deg) == -1 and np.sign(spd) == 1):
+        elif (np.sign(deg-90) == -1 and np.sign(spd) == 1):
             th_f = -th_f
             th_0 = np.pi
             dth = -0.1
@@ -78,4 +78,4 @@ def point_plot(x0,y0,dur,spd,deg):
     plt.show()
 
 if __name__ == '__main__':
-    point_plot(2,2,1,50,45)
+    point_plot(2,2,1,-50,90)

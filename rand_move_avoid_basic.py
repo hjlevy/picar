@@ -105,7 +105,7 @@ movements = {
 
 def rand_movement():
 	#N: number of random movements possible
-	N = len(movements)
+	N = len(movements)-1
 	# picking random movement 
 	n = random.randint(0,N)
 	fcn = movements.get(n,"nothing")
